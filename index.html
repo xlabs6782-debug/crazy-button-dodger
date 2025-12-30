@@ -1,52 +1,69 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Impossible Runner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Impossible Car Game</title>
 
 <style>
   body {
     margin: 0;
-    background: black;
+    background: #111;
     overflow: hidden;
     touch-action: manipulation;
-    font-family: Arial, sans-serif;
+    font-family: Arial;
   }
 
   #game {
     position: relative;
     width: 100vw;
     height: 100vh;
-    background: linear-gradient(#111, #000);
+    background: #555;
+  }
+
+  .road-line {
+    position: absolute;
+    width: 10px;
+    height: 100px;
+    background: white;
+    left: 50%;
   }
 
   #player {
     position: absolute;
     width: 50px;
-    height: 80px;
-    background: cyan;
+    height: 90px;
+    background: red;
     bottom: 20px;
     left: 45%;
     border-radius: 10px;
   }
 
-  .obstacle {
+  .enemy {
     position: absolute;
     width: 50px;
-    height: 80px;
-    background: red;
+    height: 90px;
+    background: yellow;
     top: -100px;
     border-radius: 10px;
   }
 
-  #end {
+  #score {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    color: white;
+    font-size: 20px;
+    z-index: 10;
+  }
+
+  #gameOver {
     display: none;
     position: fixed;
     inset: 0;
-    background: black;
+    background: rgba(0,0,0,0.95);
     color: red;
-    font-size: 26px;
+    font-size: 30px;
     text-align: center;
     padding-top: 40vh;
   }
@@ -55,41 +72,116 @@
 
 <body>
 
+<div id="score">Score: 0</div>
 <div id="game">
   <div id="player"></div>
 </div>
-
-<div id="end">💀 IMPOSSIBLE<br><br>You were never meant to win</div>
+<div id="gameOver">💀 IMPOSSIBLE<br><br>You were never meant to win</div>
 
 <script>
-  const player = document.getElementById("player");
   const game = document.getElementById("game");
-  const end = document.getElementById("end");
+  const player = document.getElementById("player");
+  const scoreText = document.getElementById("score");
+  const gameOverScreen = document.getElementById("gameOver");
 
   let playerX = window.innerWidth * 0.45;
-  let speed = 20; // INSANE SPEED
+  let speed = 18; // STARTS INSANE
+  let score = 0;
+  let enemies = [];
   let running = true;
-  let obstacles = [];
 
-  function spawnObstacle() {
-    const obs = document.createElement("div");
-    obs.className = "obstacle";
-    obs.style.left = Math.random() * (window.innerWidth - 50) + "px";
-    game.appendChild(obs);
-    obstacles.push(obs);
+  // ROAD LINES
+  for (let i = 0; i < 12; i++) {
+    let line = document.createElement("div");
+    line.className = "road-line";
+    line.style.top = i * 120 + "px";
+    game.appendChild(line);
+  }
+
+  function moveRoad() {
+    speed += 0.08; // GETS WORSE EVERY FRAME
+    document.querySelectorAll(".road-line").forEach(line => {
+      let top = line.offsetTop + speed;
+      if (top > window.innerHeight) top = -120;
+      line.style.top = top + "px";
+    });
+  }
+
+  function createEnemy() {
+    let enemy = document.createElement("div");
+    enemy.className = "enemy";
+
+    // 50% chance to spawn DIRECTLY ON PLAYER
+    if (Math.random() < 0.5) {
+      enemy.style.left = playerX + "px";
+    } else {
+      enemy.style.left = Math.random() * (window.innerWidth - 60) + "px";
+    }
+
+    enemy.style.top = "-120px";
+    game.appendChild(enemy);
+    enemies.push(enemy);
+  }
+
+  function moveEnemies() {
+    enemies.forEach((enemy, index) => {
+      enemy.style.top = enemy.offsetTop + speed + "px";
+
+      // UNFAIR COLLISION (FAT HITBOX)
+      if (
+        enemy.offsetTop + 120 > player.offsetTop &&
+        enemy.offsetTop < player.offsetTop + 120 &&
+        enemy.offsetLeft < player.offsetLeft + 80 &&
+        enemy.offsetLeft + 80 > player.offsetLeft
+      ) {
+        endGame();
+      }
+
+      if (enemy.offsetTop > window.innerHeight) {
+        enemy.remove();
+        enemies.splice(index, 1);
+        score++;
+        scoreText.textContent = "Score: " + score;
+      }
+    });
   }
 
   function gameLoop() {
     if (!running) return;
+    moveRoad();
+    moveEnemies();
+    player.style.left = playerX + "px";
+    requestAnimationFrame(gameLoop);
+  }
 
-    speed += 0.05; // gets worse immediately
+  function endGame() {
+    running = false;
+    gameOverScreen.style.display = "block";
+  }
 
-    obstacles.forEach((obs, i) => {
-      obs.style.top = obs.offsetTop + speed + "px";
+  // USELESS CONTROLS
+  document.addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft") playerX -= 20;
+    if (e.key === "ArrowRight") playerX += 20;
+  });
 
-      // collision
-      if (
-        obs.offsetTop + 80 > player.offsetTop &&
-        obs.offsetTop < player.offsetTop + 80 &&
-        obs.offsetLeft < player.offsetLeft + 50 &&
-        obs.o
+  game.addEventListener("touchstart", e => {
+    const x = e.touches[0].clientX;
+    if (x < window.innerWidth / 2) playerX -= 25;
+    else playerX += 25;
+  });
+
+  gameOverScreen.addEventListener("click", () => location.reload());
+  gameOverScreen.addEventListener("touchstart", () => location.reload());
+
+  // SPAWN WAY TOO FAST
+  setInterval(() => {
+    if (running) createEnemy();
+  }, 300); // IMPOSSIBLE RATE
+
+  gameLoop();
+</script>
+
+</body>
+</html>
+
